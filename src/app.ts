@@ -1,28 +1,65 @@
 import {Component} from "./components/component.js";
+import {InputDialog} from "./components/dialog/dialog.js";
+import {MediaSectionInput} from "./components/dialog/input/media-input.js";
+import {TextSectionInput} from "./components/dialog/input/text-input.js";
 import {ImageComponent} from "./components/item/image.js";
 import {NoteComponent} from "./components/item/note.js";
 import {TodoComponent} from "./components/item/todo.js";
 import {VideoComponent} from "./components/item/video.js";
 import {Composable, PageComponent, PageItemComponent} from "./components/page/page.js";
 
+type InputComponentConstructor<T = MediaSectionInput | TextSectionInput> = {
+	new(): T
+}
 class App {
 	private readonly page: Component & Composable
-	constructor (appRoot: HTMLElement) {
+	constructor (appRoot: HTMLElement, private dialogRoot: HTMLLIElement) {
 		this.page = new PageComponent(PageItemComponent)
 		this.page.attachTo(appRoot)
 
-		const image = new ImageComponent('Image 1', 'https://picsum.photos/200/300')
-		this.page.addChild(image)
+		this.bindElementToDialog<MediaSectionInput>(
+			'#new-video',
+			MediaSectionInput,
+			(input: MediaSectionInput) => new VideoComponent(input.title, input.url))
 
-		const note = new NoteComponent('Note 1', 'This is Note')
-		this.page.addChild(note)
+		this.bindElementToDialog<MediaSectionInput>(
+			'#new-image',
+			MediaSectionInput,
+			(input: MediaSectionInput) => new ImageComponent(input.title, input.url))
 
-		const todo = new TodoComponent('Todo 1', 'Eat dinner')
-		this.page.addChild(todo)
+		this.bindElementToDialog<TextSectionInput>(
+			'#new-todo',
+			TextSectionInput,
+			(input: TextSectionInput) => new TodoComponent(input.title, input.body))
 
-		const video = new VideoComponent('Video 1', 'https://www.youtube.com/watch?v=m17WVyGy3dc')
-		this.page.addChild(video)
+		this.bindElementToDialog<TextSectionInput>(
+			'#new-note',
+			TextSectionInput,
+			(input: TextSectionInput) => new NoteComponent(input.title, input.body))
+	}
+
+	private bindElementToDialog<T extends MediaSectionInput | TextSectionInput>(
+		selector: string,
+		InputComponent: InputComponentConstructor<T>,
+		makeSection: (input: T) => Component) {
+
+		const element = document.querySelector(selector)! as HTMLButtonElement
+		element.addEventListener('click', () => {
+			const dialog = new InputDialog()
+			const input = new InputComponent()
+			dialog.addChild(input)
+			dialog.attachTo(this.dialogRoot)
+
+			dialog.setOnCloseListener(() => {
+				dialog.removeFrom(this.dialogRoot)
+			})
+			dialog.setOnSubmitListener(() => {
+				const image = makeSection(input)
+				this.page.addChild(image)
+				dialog.removeFrom(this.dialogRoot)
+			})
+		})
 	}
 }
 
-new App(document.querySelector('.document')! as HTMLElement)
+new App(document.querySelector('.document')! as HTMLElement, document.body! as HTMLLIElement)
